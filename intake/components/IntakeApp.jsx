@@ -10,7 +10,7 @@ import React, { useState, useMemo } from "react";
 
 const C = {
   ink: "#0A0A0A", paper: "#FFFFFF", off: "#FAFAF8", line: "#E8E8E6",
-  sub: "#8A8A8A", aqua: "#7FD4E3", aquaDeep: "#3BA6C8", aquaあSoft: "#EAF7FA",
+  sub: "#8A8A8A", aqua: "#7FD4E3", aquaDeep: "#3BA6C8", aquaSoft: "#EAF7FA",
   warn: "#B98A3A", danger: "#C4573F", need: "#FBEDEA", needLine: "#E8B4A8",
 };
 
@@ -56,6 +56,12 @@ const KCAL_PER_KG = 7200;
 // 出典：カロリーSlism（日本食品標準成分表8訂ベース）、各社栄養成分、管理栄養士監修記事より
 // kcal はレンジ、PFCは1食あたりの概算g（大まかな目安）。店・具材・量で変動。
 const EATING_OUT = [
+  {
+    cat: "スナック・アイス", items: [
+      { name: "ポテトチップス（1袋 60g）", kcalLo: 325, kcalHi: 340, P: 3, F: 21, C: 30, note: "半分でも約160kcal。手が止まりにくいのが要注意" },
+      { name: "アイスクリーム（濃厚系ミニカップ 110ml）", kcalLo: 240, kcalHi: 300, P: 5, F: 16, C: 20, note: "小さいのに脂質・糖質が高めです" },
+    ],
+  },
   {
     cat: "麺類", items: [
       { name: "醤油・塩ラーメン（並）", kcalLo: 500, kcalHi: 700, P: 20, F: 15, C: 70, note: "スープを飲み干す・チャーシューを足すと上がります" },
@@ -195,6 +201,22 @@ export default function App() {
     if (belowBMR) coachKey = "below";
     else if (tight) coachKey = "tight";
 
+    // 開始量：減量推奨が基礎代謝を割るとき「まず始める量」を提示
+    // 維持から8%下げる。ただし基礎代謝は下回らない（下げ止め）
+    const startRaw = Math.round(tdeeMid * 0.92);
+    const startKcal = Math.max(startRaw, Math.round(bmr));
+    // 開始量のPFC：P=体重×1.3〜1.4、C=50〜55%、F=18〜21%（レンジ配分）
+    const sPLo = Math.round(+weight * 1.3);
+    const sPHi = Math.round(+weight * 1.4);
+    const sCLo = Math.round((startKcal * 0.50) / 4);
+    const sCHi = Math.round((startKcal * 0.55) / 4);
+    const sFLo = Math.round((startKcal * 0.18) / 9);
+    const sFHi = Math.round((startKcal * 0.21) / 9);
+    // レンジのどこが基礎代謝を割っているか（説明の出し分け用）
+    const hiBelow = intakeHi < bmr;   // 上限すら割る（本当に詰む）
+    const midBelow = intakeMid < bmr; // 中央が割る（= belowBMR）
+    const loBelow = intakeLo < bmr;   // 下限が割る
+
     return {
       bmr: Math.round(bmr), jobPal, fAdj, sAdj, eAdd, base: base.toFixed(2),
       palMid: palMid.toFixed(2),
@@ -203,6 +225,8 @@ export default function App() {
       intakeMid: rnd(intakeMid), intakeLo: rnd(intakeLo), intakeHi: rnd(intakeHi),
       belowBMR, tight,
       pGlo, pGhi, fG, cG, pfcBasis: rnd(pfcBasis), coachKey,
+      startKcal: rnd(startKcal), sPLo, sPHi, sCLo, sCHi, sFLo, sFHi,
+      hiBelow, midBelow, loBelow,
     };
   }, [ready, sex, age, height, weight, job, fatigue, stepsMode, steps, lifestyle, exFreq, lossKg]);
 
@@ -299,6 +323,18 @@ export default function App() {
     pfcBox: { background: C.paper, padding: "16px 10px", textAlign: "center" },
     pfcG: { fontFamily: JOST, fontSize: 20, fontWeight: 400, color: C.ink, lineHeight: 1 },
     pfcL: { fontFamily: JOST, fontSize: 10, letterSpacing: 1.5, color: C.sub, marginTop: 6 },
+    pfcSub: { fontSize: 9, color: C.sub, marginTop: 2 },
+    startBox: { background: C.aquaSoft, border: `1px solid ${C.aqua}`, padding: "20px", marginTop: 20 },
+    startLabel: { fontFamily: JOST, fontSize: 11, letterSpacing: 2, color: C.aquaDeep, marginBottom: 10 },
+    startNum: { fontFamily: JOST, fontSize: 40, fontWeight: 300, color: C.ink, lineHeight: 1 },
+    startUnit: { fontSize: 13, color: C.aquaDeep },
+    startNote: { fontSize: 11.5, color: C.sub, marginTop: 8, lineHeight: 1.8 },
+    startGuide: { background: C.off, border: `1px solid ${C.line}`, padding: "16px 18px", marginTop: 16,
+      fontSize: 12.5, lineHeight: 1.9, color: C.ink },
+    nextStep: { borderLeft: `3px solid ${C.aqua}`, padding: "4px 0 4px 14px", marginTop: 20,
+      fontSize: 12.5, lineHeight: 1.9, color: C.ink },
+    medNote: { background: C.need, border: `1px solid ${C.needLine}`, padding: "14px 16px", marginTop: 20,
+      fontSize: 11.5, lineHeight: 1.85, color: C.ink },
     footNote: { fontSize: 11, color: C.sub, letterSpacing: 0.3, lineHeight: 1.85, marginTop: 40 },
     revealBtn: { width: "100%", padding: "16px", background: "transparent", cursor: "pointer",
       border: `1px solid ${C.ink}`, borderRadius: 0, color: C.ink, fontSize: 12.5, letterSpacing: 2,
@@ -555,14 +591,71 @@ export default function App() {
             </div>
 
             {r.belowBMR && (
+              <>
               <div style={S.warn(C.danger)}>
-                <div style={S.warnHead(C.danger)}>基礎代謝量を下回っています（非推奨）</div>
+                <div style={S.warnHead(C.danger)}>この推奨は基礎代謝を下回ります</div>
                 <div style={S.warnBody}>
-                  このペースだと目安の下側が基礎代謝（{r.bmr.toLocaleString()}kcal）を割り込みます。
-                  摂取を引き上げた状態で「食べて、動いて、寝る」の三本柱で過ごしてください。
-                  減量ペースを緩めるか、運動で消費を増やすことを推奨します。
+                  減量目標から逆算した推奨は、
+                  {r.hiBelow
+                    ? `上限・中央・下限のすべてが基礎代謝（${r.bmr.toLocaleString()}kcal）を割り込みます`
+                    : `中央・下限とも基礎代謝（${r.bmr.toLocaleString()}kcal）を割り込みます（上限のみ上回る状態）`}
+                  。ここまで削るのは体を守る観点でおすすめしません。まずは下の量から始めましょう。
                 </div>
               </div>
+
+              <div style={S.startBox}>
+                <div style={S.startLabel}>まず始める量</div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                  <span style={S.startNum}>{r.startKcal.toLocaleString()}</span>
+                  <span style={S.startUnit}>kcal / 日</span>
+                </div>
+                <div style={S.startNote}>
+                  維持から約8%下げ、基礎代謝は下回らない量です。いきなり減量幅を大きくせず、
+                  まずはここから食事のバランスを整えていきます。
+                </div>
+              </div>
+
+              <div style={S.startGuide}>
+                <b>まずの指針</b>：厚生労働省の基準では、成人女性のたんぱく質は1日
+                <b>55g</b>が下限の目安です。まずはここを下回らないことから始めます。
+              </div>
+
+              <div style={{ ...S.pfcL, textAlign: "left", margin: "18px 0 10px", color: C.sub }}>
+                まず始める量の PFC 目安
+              </div>
+              <div style={S.pfcWrap}>
+                <div style={S.pfcBox}>
+                  <div style={S.pfcG}>{r.sPLo}&ndash;{r.sPHi}<span style={{ fontSize: 11 }}>g</span></div>
+                  <div style={S.pfcL}>PROTEIN</div>
+                  <div style={S.pfcSub}>体重×1.3〜1.4</div>
+                </div>
+                <div style={S.pfcBox}>
+                  <div style={S.pfcG}>{r.sFLo}&ndash;{r.sFHi}<span style={{ fontSize: 11 }}>g</span></div>
+                  <div style={S.pfcL}>FAT</div>
+                  <div style={S.pfcSub}>18〜21%</div>
+                </div>
+                <div style={S.pfcBox}>
+                  <div style={S.pfcG}>{r.sCLo}&ndash;{r.sCHi}<span style={{ fontSize: 11 }}>g</span></div>
+                  <div style={S.pfcL}>CARB</div>
+                  <div style={S.pfcSub}>50〜55%</div>
+                </div>
+              </div>
+
+              <div style={S.nextStep}>
+                <b>次のステップ</b>：食事のバランスが整い、この量に体が慣れてきたら、そこから
+                少しずつカロリーを調整していきます。まずは土台から。
+              </div>
+
+              <div style={S.medNote}>
+                ※ この糖質・脂質の配分は、健康な方の一般的な目安です。PCOS・インスリン抵抗性・
+                糖尿病など、糖代謝に配慮が必要な方を対象としたものではありません。
+                該当する場合は医師・管理栄養士の指導を優先してください。
+              </div>
+
+              <div style={{ ...S.consult, marginTop: 20 }}>
+                この数字はあくまで出発点です。最終的なレンジは担当トレーナーと相談して決めましょう。
+              </div>
+              </>
             )}
             {!r.belowBMR && r.tight && (
               <div style={S.warn(C.warn)}>
@@ -574,19 +667,14 @@ export default function App() {
               </div>
             )}
 
-            {/* 指導文＋PFC */}
+            {/* 指導文＋PFC（基礎代謝を割らないケースのみ。割る場合は上の開始量ブロックで完結） */}
+            {!r.belowBMR && (<>
             <div style={S.hr} />
             <div style={S.guideHead}>
-              {r.coachKey === "below" && "まず「食べて・動いて・寝る」から"}
               {r.coachKey === "tight" && "量を削る前に、中身から変えましょう"}
               {r.coachKey === "room" && "レンジ内で、まずは質を整えましょう"}
             </div>
             <div style={S.guideBody}>
-              {r.coachKey === "below" && (
-                <>この段階は摂取量を削るフェーズではありません。いったん摂取を引き上げ、
-                その中でたんぱく質を増やし、脂質の質（飽和脂肪酸の摂りすぎ）を見直すだけでも
-                体は変わります。まずは食事の中身から整えましょう。</>
-              )}
               {r.coachKey === "tight" && (
                 <>数字は厳しめに出ていますが、伸びしろはむしろここにあります。多くの方は
                 たんぱく質が少なく、脂質と糖質に偏っています。減量中でも
@@ -619,8 +707,8 @@ export default function App() {
             </div>
             <div style={{ ...S.band, marginTop: 12 }}>
               目安：P=体重×1.3〜1.4g、F=総エネルギーの20%、残りをC。
-              {r.belowBMR && "（基礎代謝を下回る設定のため、PFCは基礎代謝ぶんを基準に算出）"}
             </div>
+            </>)}
 
             <div style={S.footNote}>
               ※ 推定値です。中央値で開始し、2〜3週間の体重推移を見て調整してください。
@@ -633,13 +721,13 @@ export default function App() {
         {/* 外食カロリー（ボタンで展開・結果が出てから） */}
         {ready && !showEatOut && (
           <button style={S.revealBtn} onClick={() => setShowEatOut(true)}>
-            外食・身近な一皿のカロリーを見る ＋
+            高カロリー食の例を見る ＋
           </button>
         )}
 
         {ready && showEatOut && (
-          <Section S={S} no="09" title="外食の一皿インパクト"
-            note={`身近な外食やおやつが、1食でだいたい何kcalになるかの一覧です。あなたの1日の推奨は約${r ? r.intakeHi.toLocaleString() : "—"}kcal。一皿でどれくらい使うか、目安として知っておきましょう。同じ料理でもお店や量で差が出るため、幅（レンジ）で示しています。`}>
+          <Section S={S} no="09" title="高カロリー食の例"
+            note={`身近な外食・おやつが、1食・1個でだいたい何kcalになるかの一覧です。あなたの1日の推奨は約${r ? r.intakeHi.toLocaleString() : "—"}kcal。一皿・一袋でどれくらい使うか、目安として知っておきましょう。お店や量で差が出るため、幅で示しています。`}>
 
             {EATING_OUT.map((grp) => (
               <div key={grp.cat} style={{ marginBottom: 22 }}>
