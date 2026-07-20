@@ -52,6 +52,86 @@ const STEP_LIFESTYLE = [
 const RANGE = 0.055;
 const KCAL_PER_KG = 7200;
 
+// 食事の目安：可食部100gあたりの代表値（日本食品標準成分表ベース）
+// 各食材: g=基準グラム, fib=食物繊維(g/基準量), unit/unitName=個数換算(任意)
+// 献立ごとに基準構成を持ち、その食の目標kcalに合わせて全体を比例スケールする。
+const MENUS = {
+  breakfast: [
+    {
+      id: "b_wa", label: "和朝食", desc: "白米・納豆・卵・味噌汁・野菜", baseKcal: 480,
+      items: [
+        { name: "白米ごはん", g: 150, fib: 0.5 },
+        { name: "納豆", g: 45, fib: 3, unit: 45, unitName: "パック" },
+        { name: "卵（目玉焼き）", g: 50, fib: 0, unit: 50, unitName: "個" },
+        { name: "味噌汁（豆腐・わかめ）", g: 200, fib: 2 },
+        { name: "ほうれん草のおひたし", g: 60, fib: 1.7 },
+      ],
+    },
+    {
+      id: "b_yo", label: "洋朝食", desc: "オートミール・ヨーグルト・卵・果物", baseKcal: 450,
+      items: [
+        { name: "オートミール", g: 40, fib: 3.8 },
+        { name: "ギリシャヨーグルト", g: 100, fib: 0, unit: 100, unitName: "個" },
+        { name: "ゆで卵", g: 50, fib: 0, unit: 50, unitName: "個" },
+        { name: "バナナ", g: 100, fib: 1.1, unit: 100, unitName: "本" },
+        { name: "ミニトマト", g: 60, fib: 0.8 },
+      ],
+    },
+  ],
+  lunch: [
+    {
+      id: "l_don", label: "鶏そぼろ丼＋サラダ", desc: "白米・鶏むね・卵・サラダ・味噌汁", baseKcal: 620,
+      items: [
+        { name: "白米ごはん", g: 180, fib: 0.5 },
+        { name: "鶏むね（皮なし・そぼろ）", g: 100, fib: 0 },
+        { name: "卵（炒り卵）", g: 50, fib: 0, unit: 50, unitName: "個" },
+        { name: "グリーンサラダ", g: 80, fib: 2.2 },
+        { name: "きのこの味噌汁", g: 200, fib: 2.5 },
+      ],
+    },
+    {
+      id: "l_sake", label: "鮭定食", desc: "白米・焼き鮭・冷奴・小鉢・味噌汁", baseKcal: 600,
+      items: [
+        { name: "白米ごはん", g: 180, fib: 0.5 },
+        { name: "焼き鮭", g: 90, fib: 0 },
+        { name: "冷奴（木綿）", g: 100, fib: 0.4, unit: 150, unitName: "丁(2/3)" },
+        { name: "ひじきの煮物", g: 60, fib: 2.5 },
+        { name: "野菜の味噌汁", g: 200, fib: 2 },
+      ],
+    },
+  ],
+  dinner: [
+    {
+      id: "d_pork", label: "豚肉と野菜炒め定食", desc: "白米・豚ロース・野菜炒め・冷奴・味噌汁", baseKcal: 640,
+      items: [
+        { name: "白米ごはん", g: 150, fib: 0.5 },
+        { name: "豚ロース（赤身）", g: 100, fib: 0 },
+        { name: "野菜炒め（キャベツ等）", g: 150, fib: 3 },
+        { name: "冷奴（木綿）", g: 100, fib: 0.4, unit: 150, unitName: "丁(2/3)" },
+        { name: "わかめの味噌汁", g: 200, fib: 2 },
+      ],
+    },
+    {
+      id: "d_chicken", label: "鶏と根菜の煮物定食", desc: "白米・鶏もも・根菜煮・納豆・味噌汁", baseKcal: 630,
+      items: [
+        { name: "白米ごはん", g: 150, fib: 0.5 },
+        { name: "鶏もも（皮少なめ）", g: 100, fib: 0 },
+        { name: "根菜の煮物（ごぼう等）", g: 120, fib: 3.5 },
+        { name: "納豆", g: 45, fib: 3, unit: 45, unitName: "パック" },
+        { name: "きのこの味噌汁", g: 200, fib: 2.5 },
+      ],
+    },
+  ],
+};
+
+const FIBER_TARGET = 20;
+
+const MEALS = [
+  { id: "breakfast", label: "朝", en: "MORNING" },
+  { id: "lunch", label: "昼", en: "NOON" },
+  { id: "dinner", label: "夕", en: "EVENING" },
+];
+
 function bmrMifflin({ sex, weight, height, age }) {
   const base = 10 * weight + 6.25 * height - 5 * age;
   return sex === "male" ? base + 5 : base - 161;
@@ -76,6 +156,12 @@ export default function App() {
   const [lifestyle, setLifestyle] = useState("l2");
   const [exFreq, setExFreq] = useState({});
   const [lossKg, setLossKg] = useState(2.0);
+  // 食事の目安
+  const [showMeal, setShowMeal] = useState(false);
+  const [split, setSplit] = useState({ breakfast: 33, lunch: 33, dinner: 34 });
+  const [menuChoice, setMenuChoice] = useState({
+    breakfast: "b_wa", lunch: "l_don", dinner: "d_pork",
+  });
 
   const r = useMemo(() => {
     const bmr = bmrMifflin({ sex, weight, height, age });
@@ -132,6 +218,48 @@ export default function App() {
     };
   }, [sex, age, height, weight, job, fatigue, stepsMode, steps, lifestyle, exFreq, lossKg]);
 
+  // 食事・水分・睡眠の目安（推奨の目安＝intakeHi を1日量として3食に配分）
+  const meal = useMemo(() => {
+    const dayKcal = r.intakeHi;
+    const cDay = r.cG;
+
+    const tot = split.breakfast + split.lunch + split.dinner || 1;
+    const ratio = { breakfast: split.breakfast / tot, lunch: split.lunch / tot, dinner: split.dinner / tot };
+
+    let fiberSum = 0;
+    const perMeal = MEALS.map((m) => {
+      const w = ratio[m.id];
+      const targetKcal = dayKcal * w;
+      const menu = MENUS[m.id].find((x) => x.id === menuChoice[m.id]) || MENUS[m.id][0];
+      // 献立の基準kcalに対して、この食の目標kcalへ比例スケール
+      const scale = targetKcal / menu.baseKcal;
+
+      const items = menu.items.map((it) => {
+        const g = Math.round((it.g * scale) / 5) * 5;
+        const units = it.unit ? g / it.unit : null;
+        fiberSum += (it.fib || 0) * scale;
+        return { name: it.name, g, units, unitName: it.unitName };
+      });
+
+      return { ...m, kcal: Math.round(targetKcal / 10) * 10, menu, items };
+    });
+
+    // 献立から得られる食物繊維の合計（スケール後）
+    const fiberFromMeals = Math.round(fiberSum);
+    const fiberGap = Math.max(0, FIBER_TARGET - fiberFromMeals);
+
+    // 水分：体重×35mL を土台。運動量・炭水化物量で微調整し、食事から約50%摂る前提で飲用ぶんをレンジ化
+    const totalMl = weight * 35 + (r.eAdd > 0.08 ? 300 : 0) + (cDay > 200 ? 200 : 0);
+    const drinkLo = Math.max(1.2, (totalMl * 0.48) / 1000);
+    const drinkHi = Math.min(2.6, (totalMl * 0.62) / 1000);
+
+    return {
+      dayKcal, perMeal,
+      fiberTarget: FIBER_TARGET, fiberFromMeals, fiberGap,
+      waterLo: drinkLo.toFixed(1), waterHi: drinkHi.toFixed(1),
+    };
+  }, [r, split, menuChoice, weight]);
+
   const SANS = "'Noto Sans JP', sans-serif";
   const JOST = "'Jost', 'Noto Sans JP', sans-serif";
 
@@ -140,6 +268,7 @@ export default function App() {
       padding: "40px 22px 64px", WebkitFontSmoothing: "antialiased" },
     inner: { maxWidth: 620, margin: "0 auto" },
 
+    // header
     brand: { fontFamily: JOST, fontSize: 12, letterSpacing: 5, color: C.ink, fontWeight: 400,
       marginBottom: 24 },
     brandDim: { color: C.sub },
@@ -151,12 +280,14 @@ export default function App() {
     caveat: { fontSize: 11, color: C.sub, lineHeight: 1.95, letterSpacing: 0.3,
       borderLeft: `2px solid ${C.aqua}`, paddingLeft: 14, margin: "24px 0 0" },
 
+    // section
     section: { marginTop: 48 },
     secHead: { display: "flex", alignItems: "baseline", gap: 12, marginBottom: 22 },
     secNo: { fontFamily: JOST, fontSize: 12, letterSpacing: 2, color: C.aqua, fontWeight: 400 },
     secTitle: { fontSize: 12, letterSpacing: 3, color: C.ink, fontWeight: 500 },
     secNote: { fontSize: 11, color: C.sub, lineHeight: 1.85, letterSpacing: 0.3, margin: "-8px 0 20px 24px" },
 
+    // fields
     grid2: { display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 24 },
     field: { minWidth: 0 },
     flabel: { fontFamily: JOST, fontSize: 10, letterSpacing: 2, color: C.sub,
@@ -165,6 +296,7 @@ export default function App() {
       borderRadius: 0, fontFamily: JOST, fontSize: 18, background: "transparent",
       color: C.ink, width: "100%", boxSizing: "border-box", outline: "none" },
 
+    // segmented (pills → underlined toggles)
     segRow: { display: "flex", gap: 0, borderBottom: `1px solid ${C.line}` },
     seg: (on) => ({ flex: "0 0 auto", padding: "10px 18px 12px", fontSize: 13, cursor: "pointer",
       letterSpacing: 1, color: on ? C.ink : C.sub, fontWeight: on ? 500 : 400,
@@ -174,6 +306,7 @@ export default function App() {
       border: `1px solid ${on ? C.ink : C.line}`, background: on ? C.ink : "transparent",
       color: on ? "#fff" : C.sub, borderRadius: 0 }),
 
+    // list rows (jobs / fatigue / exercise)
     rowList: { borderTop: `1px solid ${C.line}` },
     row: (on) => ({ display: "flex", justifyContent: "space-between", alignItems: "center",
       gap: 12, padding: "16px 2px", borderBottom: `1px solid ${C.line}`, cursor: "pointer",
@@ -187,12 +320,14 @@ export default function App() {
       border: `1px solid ${on ? C.aquaDeep : C.line}`,
       background: on ? C.aquaDeep : "transparent", display: "inline-block" }),
 
+    // slider
     sliderRow: { display: "flex", alignItems: "center", gap: 16 },
     slider: { flex: 1, accentColor: C.aquaDeep },
     sliderVal: { fontFamily: JOST, fontSize: 20, fontWeight: 400, minWidth: 92,
       textAlign: "right", letterSpacing: 0.5 },
     hint: { fontSize: 11, color: C.sub, lineHeight: 1.8, letterSpacing: 0.3, marginTop: 12 },
 
+    // result
     result: { background: C.off, border: `1px solid ${C.line}`, padding: "30px 26px", marginTop: 20 },
     resLabel: { fontFamily: JOST, fontSize: 10, letterSpacing: 2.5, color: C.sub, marginBottom: 12 },
     resLabelHi: { fontFamily: JOST, fontSize: 10, letterSpacing: 2.5, color: C.aquaDeep, marginBottom: 12 },
@@ -201,6 +336,7 @@ export default function App() {
     band: { fontSize: 11, color: C.sub, letterSpacing: 0.5, lineHeight: 1.8, marginTop: 8 },
     hr: { height: 1, background: C.line, margin: "24px 0" },
 
+    // warn / guide
     warn: (col) => ({ borderLeft: `2px solid ${col}`, paddingLeft: 16, marginTop: 22 }),
     warnHead: (col) => ({ fontSize: 12.5, fontWeight: 500, letterSpacing: 1, color: col, marginBottom: 6 }),
     warnBody: { fontSize: 12.5, lineHeight: 1.9, letterSpacing: 0.3, color: C.ink },
@@ -214,6 +350,32 @@ export default function App() {
     pfcG: { fontFamily: JOST, fontSize: 20, fontWeight: 400, color: C.ink, lineHeight: 1 },
     pfcL: { fontFamily: JOST, fontSize: 10, letterSpacing: 1.5, color: C.sub, marginTop: 6 },
     footNote: { fontSize: 11, color: C.sub, letterSpacing: 0.3, lineHeight: 1.85, marginTop: 40 },
+    revealBtn: { width: "100%", padding: "16px", background: "transparent", cursor: "pointer",
+      border: `1px solid ${C.ink}`, borderRadius: 0, color: C.ink, fontSize: 12.5, letterSpacing: 2,
+      marginTop: 20, fontFamily: JOST, fontWeight: 400 },
+    mealCard: { border: `1px solid ${C.line}`, padding: "20px 20px 22px", marginBottom: 14 },
+    mealHead: { display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14,
+      paddingBottom: 12, borderBottom: `1px solid ${C.line}` },
+    mealTitle: { display: "flex", alignItems: "baseline", gap: 10 },
+    mealJa: { fontSize: 15, fontWeight: 500, letterSpacing: 1 },
+    mealEn: { fontFamily: JOST, fontSize: 10, letterSpacing: 2, color: C.sub },
+    mealKcal: { fontFamily: JOST, fontSize: 16, fontWeight: 400 },
+    splitRow: { display: "flex", alignItems: "center", gap: 10, marginBottom: 6 },
+    splitLabel: { fontSize: 12, letterSpacing: 1, minWidth: 24 },
+    splitVal: { fontFamily: JOST, fontSize: 13, minWidth: 40, textAlign: "right" },
+    foodRow: { display: "flex", justifyContent: "space-between", alignItems: "center",
+      padding: "9px 0", borderBottom: `1px solid ${C.line}` },
+    foodName: { fontSize: 13, letterSpacing: 0.5 },
+    foodG: { fontFamily: JOST, fontSize: 15, fontWeight: 400 },
+    protPick: { display: "flex", flexWrap: "wrap", gap: 6, margin: "4px 0 14px" },
+    protChip: (on) => ({ padding: "6px 12px", fontSize: 11.5, cursor: "pointer", letterSpacing: 0.5,
+      border: `1px solid ${on ? C.ink : C.line}`, background: on ? C.ink : "transparent",
+      color: on ? "#fff" : C.sub, borderRadius: 0 }),
+    reco: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1, background: C.line,
+      border: `1px solid ${C.line}`, marginTop: 8 },
+    recoBox: { background: C.paper, padding: "16px 10px", textAlign: "center" },
+    recoNum: { fontFamily: JOST, fontSize: 18, fontWeight: 400, lineHeight: 1.2 },
+    recoLabel: { fontFamily: JOST, fontSize: 9.5, letterSpacing: 1.2, color: C.sub, marginTop: 6 },
   };
 
   const Section = ({ no, title, note, children }) => (
@@ -233,9 +395,9 @@ export default function App() {
 
   return (
     <div style={S.wrap}>
-      <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500&family=Noto+Sans+JP:wght@300;400;500&display=swap" rel="stylesheet" />
       <div style={S.inner}>
 
+        {/* header */}
         <div style={S.brand}>FLEXER<span style={S.brandDim}>&nbsp;&mdash;&nbsp;INTAKE</span></div>
         <div style={S.kicker}>ENERGY INTAKE</div>
         <h1 style={S.h1}>エネルギー摂取量設定</h1>
@@ -246,6 +408,7 @@ export default function App() {
           カロリーやPFCの調整は担当トレーナーと相談して決めてください。
         </div>
 
+        {/* 01 基本情報 */}
         <Section no="01" title="基本情報">
           <div style={{ ...S.segWrap, marginBottom: 24 }}>
             <div style={S.chip(sex === "female")} onClick={() => setSex("female")}>女性</div>
@@ -258,6 +421,7 @@ export default function App() {
           <div style={S.field}><label style={S.flabel}>Weight / kg</label>{num(weight, setWeight)}</div>
         </Section>
 
+        {/* 02 体脂肪率 */}
         <Section no="02" title="体脂肪率" note="家庭用計は日により±数％ぶれます。おおよその幅で捉えてください。">
           <div style={S.grid2}>
             <div style={S.field}><label style={S.flabel}>Low / %</label>{num(bfLo, setBfLo)}</div>
@@ -265,6 +429,7 @@ export default function App() {
           </div>
         </Section>
 
+        {/* 03 職業 */}
         <Section no="03" title="職業・勤務中の活動"
           note="この活動係数はFLEXER独自の係数で、一般的な計算式より意図的に厳しめです。ここで選ぶ職業はおおよその出発点。次の「疲れ方」と「歩数」で実際の活動量に寄せて補正します。肩書きと実態がずれても、あとの2問で調整されます。">
           <div style={S.rowList}>
@@ -280,6 +445,7 @@ export default function App() {
           </div>
         </Section>
 
+        {/* 04 疲労度 */}
         <Section no="04" title="仕事を終えたときの体の感じ"
           note="「座りっぱなしで固まった疲れ」は活動ではありません。「動いて疲れた」なら活動としてカウントします。">
           <div style={S.rowList}>
@@ -298,6 +464,7 @@ export default function App() {
           </div>
         </Section>
 
+        {/* 05 歩数 */}
         <Section no="05" title="1日の平均歩数">
           <div style={{ ...S.segRow, marginBottom: 20 }}>
             <div style={S.seg(stepsMode === "exact")} onClick={() => setStepsMode("exact")}>数字で入れる</div>
@@ -332,6 +499,7 @@ export default function App() {
           )}
         </Section>
 
+        {/* 06 運動習慣 */}
         <Section no="06" title="運動習慣（複数選択可）"
           note="やっている運動をすべて選び、それぞれの頻度を指定してください。何もしていなければ空のままでOK。">
           <div style={S.rowList}>
@@ -371,6 +539,7 @@ export default function App() {
           )}
         </Section>
 
+        {/* 07 減量目標 */}
         <Section no="07" title="1か月あたりの減量目標">
           <div style={S.sliderRow}>
             <input style={S.slider} type="range" min={0.5} max={3} step={0.5}
@@ -383,6 +552,7 @@ export default function App() {
           </div>
         </Section>
 
+        {/* 08 結果 */}
         <Section no="08" title="結果">
           <div style={S.result}>
             <div style={S.resLabel}>MAINTENANCE&nbsp;&mdash;&nbsp;TDEE</div>
@@ -424,6 +594,7 @@ export default function App() {
               </div>
             )}
 
+            {/* 指導文＋PFC */}
             <div style={S.hr} />
             <div style={S.guideHead}>
               {r.coachKey === "below" && "まず「食べて・動いて・寝る」から"}
@@ -477,6 +648,102 @@ export default function App() {
             </div>
           </div>
         </Section>
+
+        {/* 食事の目安（ボタンで展開） */}
+        {!showMeal && (
+          <button style={S.revealBtn} onClick={() => setShowMeal(true)}>
+            食材のグラム数目安を見る ＋
+          </button>
+        )}
+
+        {showMeal && (
+          <Section no="09" title="食事とリカバリーの目安"
+            note="推奨の目安（上限側）を1日量として3食に配分し、定番の献立に置き換えた目安です。各食はパターンを選べ、カロリー配分に合わせてグラム数が調整されます。量感の目安としてご活用ください。">
+
+            {/* 3食配分 */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ ...S.flabel, marginBottom: 12 }}>Meal split / %</div>
+              {MEALS.map((m) => (
+                <div key={m.id} style={S.splitRow}>
+                  <span style={S.splitLabel}>{m.label}</span>
+                  <input style={S.slider} type="range" min={10} max={60} step={1}
+                    value={split[m.id]}
+                    onChange={(e) => setSplit((p) => ({ ...p, [m.id]: +e.target.value }))} />
+                  <span style={S.splitVal}>{split[m.id]}%</span>
+                </div>
+              ))}
+              <div style={S.hint}>
+                合計 {split.breakfast + split.lunch + split.dinner}%（100%になるよう調整すると精度が上がります）。
+              </div>
+            </div>
+
+            {/* 各食 */}
+            {meal.perMeal.map((pm) => (
+              <div key={pm.id} style={S.mealCard}>
+                <div style={S.mealHead}>
+                  <div style={S.mealTitle}>
+                    <span style={S.mealJa}>{pm.label}</span>
+                    <span style={S.mealEn}>{pm.en}</span>
+                  </div>
+                  <span style={S.mealKcal}>{pm.kcal.toLocaleString()} kcal</span>
+                </div>
+
+                <div style={S.protPick}>
+                  {MENUS[pm.id].map((mn) => (
+                    <div key={mn.id} style={S.protChip(menuChoice[pm.id] === mn.id)}
+                      onClick={() => setMenuChoice((p) => ({ ...p, [pm.id]: mn.id }))}>
+                      {mn.label}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ ...S.band, marginTop: 0, marginBottom: 10 }}>{pm.menu.desc}</div>
+
+                {pm.items.map((it, i) => (
+                  <div key={i} style={S.foodRow}>
+                    <span style={S.foodName}>
+                      {it.name}
+                      {it.units && (
+                        <span style={{ color: C.sub, fontSize: 11, marginLeft: 8 }}>
+                          ≈ {it.units.toFixed(1)}{it.unitName}
+                        </span>
+                      )}
+                    </span>
+                    <span style={S.foodG}>{it.g} g</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+
+            {/* 食物繊維・水分・睡眠 */}
+            <div style={S.reco}>
+              <div style={S.recoBox}>
+                <div style={S.recoNum}>{meal.fiberTarget}<span style={{ fontSize: 11 }}>g</span></div>
+                <div style={S.recoLabel}>FIBER / 日</div>
+              </div>
+              <div style={S.recoBox}>
+                <div style={S.recoNum}>{meal.waterLo}–{meal.waterHi}<span style={{ fontSize: 11 }}>L</span></div>
+                <div style={S.recoLabel}>WATER / 日</div>
+              </div>
+              <div style={S.recoBox}>
+                <div style={S.recoNum}>6–7<span style={{ fontSize: 11 }}>h</span></div>
+                <div style={S.recoLabel}>SLEEP / 日</div>
+              </div>
+            </div>
+            <div style={{ ...S.band, marginTop: 12 }}>
+              上の3食で食物繊維は約{meal.fiberFromMeals}g。
+              {meal.fiberGap > 0
+                ? `目標20gまであと約${meal.fiberGap}gは、野菜・きのこ・海藻・果物を一品足して補ってください。`
+                : "この時点で1日20gの目標に届いています。"}<br />
+              水分は飲用としての目安（食事から約半分を摂る前提）。運動量・体格・糖質量で変わります。<br />
+              睡眠は最低6時間、6〜7時間を推奨。
+            </div>
+
+            <button style={{ ...S.revealBtn, borderColor: C.line, color: C.sub }}
+              onClick={() => setShowMeal(false)}>
+              閉じる −
+            </button>
+          </Section>
+        )}
 
       </div>
     </div>
