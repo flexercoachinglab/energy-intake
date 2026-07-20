@@ -10,7 +10,7 @@ import React, { useState, useMemo } from "react";
 
 const C = {
   ink: "#0A0A0A", paper: "#FFFFFF", off: "#FAFAF8", line: "#E8E8E6",
-  sub: "#8A8A8A", aqua: "#7FD4E3", aquaDeep: "#3BA6C8", aquaSoft: "#EAF7FA",
+  sub: "#8A8A8A", aqua: "#7FD4E3", aquaDeep: "#3BA6C8", aquaあSoft: "#EAF7FA",
   warn: "#B98A3A", danger: "#C4573F", need: "#FBEDEA", needLine: "#E8B4A8",
 };
 
@@ -52,84 +52,41 @@ const STEP_LIFESTYLE = [
 const RANGE = 0.055;
 const KCAL_PER_KG = 7200;
 
-// 食事の目安：可食部100gあたりの代表値（日本食品標準成分表ベース）
-// 各食材: g=基準グラム, fib=食物繊維(g/基準量), unit/unitName=個数換算(任意)
-// 献立ごとに基準構成を持ち、その食の目標kcalに合わせて全体を比例スケールする。
-const MENUS = {
-  breakfast: [
-    {
-      id: "b_wa", label: "和朝食", desc: "白米・納豆・卵・味噌汁・野菜", baseKcal: 480,
-      items: [
-        { name: "白米ごはん", g: 150, fib: 0.5 },
-        { name: "納豆", g: 45, fib: 3, unit: 45, unitName: "パック" },
-        { name: "卵（目玉焼き）", g: 50, fib: 0, unit: 50, unitName: "個" },
-        { name: "味噌汁（豆腐・わかめ）", g: 200, fib: 2 },
-        { name: "ほうれん草のおひたし", g: 60, fib: 1.7 },
-      ],
-    },
-    {
-      id: "b_yo", label: "洋朝食", desc: "オートミール・ヨーグルト・卵・果物", baseKcal: 450,
-      items: [
-        { name: "オートミール", g: 40, fib: 3.8 },
-        { name: "ギリシャヨーグルト", g: 100, fib: 0, unit: 100, unitName: "個" },
-        { name: "ゆで卵", g: 50, fib: 0, unit: 50, unitName: "個" },
-        { name: "バナナ", g: 100, fib: 1.1, unit: 100, unitName: "本" },
-        { name: "ミニトマト", g: 60, fib: 0.8 },
-      ],
-    },
-  ],
-  lunch: [
-    {
-      id: "l_don", label: "鶏そぼろ丼＋サラダ", desc: "白米・鶏むね・卵・サラダ・味噌汁", baseKcal: 620,
-      items: [
-        { name: "白米ごはん", g: 180, fib: 0.5 },
-        { name: "鶏むね（皮なし・そぼろ）", g: 100, fib: 0 },
-        { name: "卵（炒り卵）", g: 50, fib: 0, unit: 50, unitName: "個" },
-        { name: "グリーンサラダ", g: 80, fib: 2.2 },
-        { name: "きのこの味噌汁", g: 200, fib: 2.5 },
-      ],
-    },
-    {
-      id: "l_sake", label: "鮭定食", desc: "白米・焼き鮭・冷奴・小鉢・味噌汁", baseKcal: 600,
-      items: [
-        { name: "白米ごはん", g: 180, fib: 0.5 },
-        { name: "焼き鮭", g: 90, fib: 0 },
-        { name: "冷奴（木綿）", g: 100, fib: 0.4, unit: 150, unitName: "丁(2/3)" },
-        { name: "ひじきの煮物", g: 60, fib: 2.5 },
-        { name: "野菜の味噌汁", g: 200, fib: 2 },
-      ],
-    },
-  ],
-  dinner: [
-    {
-      id: "d_pork", label: "豚肉と野菜炒め定食", desc: "白米・豚ロース・野菜炒め・冷奴・味噌汁", baseKcal: 640,
-      items: [
-        { name: "白米ごはん", g: 150, fib: 0.5 },
-        { name: "豚ロース（赤身）", g: 100, fib: 0 },
-        { name: "野菜炒め（キャベツ等）", g: 150, fib: 3 },
-        { name: "冷奴（木綿）", g: 100, fib: 0.4, unit: 150, unitName: "丁(2/3)" },
-        { name: "わかめの味噌汁", g: 200, fib: 2 },
-      ],
-    },
-    {
-      id: "d_chicken", label: "鶏と根菜の煮物定食", desc: "白米・鶏もも・根菜煮・納豆・味噌汁", baseKcal: 630,
-      items: [
-        { name: "白米ごはん", g: 150, fib: 0.5 },
-        { name: "鶏もも（皮少なめ）", g: 100, fib: 0 },
-        { name: "根菜の煮物（ごぼう等）", g: 120, fib: 3.5 },
-        { name: "納豆", g: 45, fib: 3, unit: 45, unitName: "パック" },
-        { name: "きのこの味噌汁", g: 200, fib: 2.5 },
-      ],
-    },
-  ],
-};
-
-const FIBER_TARGET = 20;
-
-const MEALS = [
-  { id: "breakfast", label: "朝", en: "MORNING" },
-  { id: "lunch", label: "昼", en: "NOON" },
-  { id: "dinner", label: "夕", en: "EVENING" },
+// ── 外食・身近な一皿のカロリー／PFCインパクト ──
+// 出典：カロリーSlism（日本食品標準成分表8訂ベース）、各社栄養成分、管理栄養士監修記事より
+// kcal はレンジ、PFCは1食あたりの概算g（大まかな目安）。店・具材・量で変動。
+const EATING_OUT = [
+  {
+    cat: "麺類", items: [
+      { name: "醤油・塩ラーメン（並）", kcalLo: 500, kcalHi: 700, P: 20, F: 15, C: 70, note: "スープを飲み干す・チャーシューを足すと上がります" },
+      { name: "味噌・とんこつラーメン（並）", kcalLo: 700, kcalHi: 900, P: 25, F: 30, C: 80, note: "背脂・こってり系はさらに上がります" },
+      { name: "うどん（並・麺のみ）", kcalLo: 300, kcalHi: 350, P: 8, F: 2, C: 65, note: "" },
+      { name: "パスタ（トマト・和風）", kcalLo: 500, kcalHi: 680, P: 16, F: 14, C: 80, note: "" },
+      { name: "パスタ（カルボナーラ）", kcalLo: 690, kcalHi: 950, P: 22, F: 38, C: 78, note: "クリーム・チーズで脂質が上がります" },
+      { name: "エビ・ホタテのトマトソース", kcalLo: 600, kcalHi: 750, P: 24, F: 18, C: 82, note: "" },
+      { name: "エビのトマトクリーム", kcalLo: 720, kcalHi: 900, P: 22, F: 30, C: 82, note: "クリームで脂質が上がります" },
+    ],
+  },
+  {
+    cat: "揚げ物・粉物", items: [
+      { name: "唐揚げ（中1個）", kcalLo: 90, kcalHi: 110, P: 7, F: 6, C: 4, note: "5個で約450〜550kcal" },
+      { name: "天ぷら盛り合わせ（えび・いか・かぼちゃ・なす・きす）", kcalLo: 400, kcalHi: 500, P: 20, F: 22, C: 30, note: "5種盛りの目安です" },
+      { name: "えび天（1本）", kcalLo: 60, kcalHi: 80, P: 5, F: 4, C: 4, note: "" },
+      { name: "かぼちゃ・さつまいも天（1個）", kcalLo: 90, kcalHi: 110, P: 1, F: 5, C: 14, note: "衣＋芋で糖質が上がります" },
+      { name: "野菜のかき揚げ（1個）", kcalLo: 130, kcalHi: 200, P: 3, F: 12, C: 14, note: "衣が油を多く吸って高くなります" },
+      { name: "ピザ（1切れ）", kcalLo: 120, kcalHi: 200, P: 7, F: 8, C: 18, note: "2切れで約240〜400kcal" },
+      { name: "ハンバーガー（標準）", kcalLo: 260, kcalHi: 310, P: 14, F: 11, C: 31, note: "" },
+      { name: "ビッグマック等（大きめ）", kcalLo: 500, kcalHi: 560, P: 26, F: 28, C: 42, note: "サイズが上がると脂質が一気に増えます" },
+    ],
+  },
+  {
+    cat: "スイーツ", items: [
+      { name: "ショートケーキ（1個）", kcalLo: 310, kcalHi: 370, P: 5, F: 25, C: 30, note: "砂糖・生クリームで高くなります" },
+      { name: "シュークリーム（1個）", kcalLo: 160, kcalHi: 280, P: 5, F: 11, C: 19, note: "" },
+      { name: "チョコレートケーキ（1個）", kcalLo: 400, kcalHi: 440, P: 6, F: 26, C: 40, note: "チョコ・バターで高くなります" },
+      { name: "チョコレートパフェ（1杯）", kcalLo: 500, kcalHi: 560, P: 9, F: 30, C: 57, note: "アイス・ソースで一気に高くなります" },
+    ],
+  },
 ];
 
 function bmrMifflin({ sex, weight, height, age }) {
@@ -173,12 +130,8 @@ export default function App() {
   const [exFreq, setExFreq] = useState({});
   const [exNone, setExNone] = useState(false); // 「運動なし」を明示的に選んだか
   const [lossKg, setLossKg] = useState(null);
-  // 食事の目安
-  const [showMeal, setShowMeal] = useState(false);
-  const [split, setSplit] = useState({ breakfast: 33, lunch: 33, dinner: 34 });
-  const [menuChoice, setMenuChoice] = useState({
-    breakfast: "b_wa", lunch: "l_don", dinner: "d_pork",
-  });
+  // 外食カロリーの一覧（ボタンで展開）
+  const [showEatOut, setShowEatOut] = useState(false);
 
   // 各項目の未入力・未選択を判定
   const filled = {
@@ -252,49 +205,6 @@ export default function App() {
       pGlo, pGhi, fG, cG, pfcBasis: rnd(pfcBasis), coachKey,
     };
   }, [ready, sex, age, height, weight, job, fatigue, stepsMode, steps, lifestyle, exFreq, lossKg]);
-
-  // 食事・水分・睡眠の目安（推奨の目安＝intakeHi を1日量として3食に配分）
-  const meal = useMemo(() => {
-    if (!r) return null;
-    const dayKcal = r.intakeHi;
-    const cDay = r.cG;
-
-    const tot = split.breakfast + split.lunch + split.dinner || 1;
-    const ratio = { breakfast: split.breakfast / tot, lunch: split.lunch / tot, dinner: split.dinner / tot };
-
-    let fiberSum = 0;
-    const perMeal = MEALS.map((m) => {
-      const w = ratio[m.id];
-      const targetKcal = dayKcal * w;
-      const menu = MENUS[m.id].find((x) => x.id === menuChoice[m.id]) || MENUS[m.id][0];
-      // 献立の基準kcalに対して、この食の目標kcalへ比例スケール
-      const scale = targetKcal / menu.baseKcal;
-
-      const items = menu.items.map((it) => {
-        const g = Math.round((it.g * scale) / 5) * 5;
-        const units = it.unit ? g / it.unit : null;
-        fiberSum += (it.fib || 0) * scale;
-        return { name: it.name, g, units, unitName: it.unitName };
-      });
-
-      return { ...m, kcal: Math.round(targetKcal / 10) * 10, menu, items };
-    });
-
-    // 献立から得られる食物繊維の合計（スケール後）
-    const fiberFromMeals = Math.round(fiberSum);
-    const fiberGap = Math.max(0, FIBER_TARGET - fiberFromMeals);
-
-    // 水分：体重×35mL を土台。運動量・炭水化物量で微調整し、食事から約50%摂る前提で飲用ぶんをレンジ化
-    const totalMl = +weight * 35 + (r.eAdd > 0.08 ? 300 : 0) + (cDay > 200 ? 200 : 0);
-    const drinkLo = Math.max(1.2, (totalMl * 0.48) / 1000);
-    const drinkHi = Math.min(2.6, (totalMl * 0.62) / 1000);
-
-    return {
-      dayKcal, perMeal,
-      fiberTarget: FIBER_TARGET, fiberFromMeals, fiberGap,
-      waterLo: drinkLo.toFixed(1), waterHi: drinkHi.toFixed(1),
-    };
-  }, [r, split, menuChoice, weight]);
 
   const SANS = "'Noto Sans JP', sans-serif";
   const JOST = "'Jost', 'Noto Sans JP', sans-serif";
@@ -720,97 +630,94 @@ export default function App() {
           )}
         </Section>
 
-        {/* 食事の目安（ボタンで展開・結果が出てから） */}
-        {ready && !showMeal && (
-          <button style={S.revealBtn} onClick={() => setShowMeal(true)}>
-            食材のグラム数目安を見る ＋
+        {/* 外食カロリー（ボタンで展開・結果が出てから） */}
+        {ready && !showEatOut && (
+          <button style={S.revealBtn} onClick={() => setShowEatOut(true)}>
+            外食・身近な一皿のカロリーを見る ＋
           </button>
         )}
 
-        {ready && showMeal && (
-          <Section S={S} no="09" title="食事とリカバリーの目安"
-            note="推奨の目安（上限側）を1日量として3食に配分し、定番の献立に置き換えた目安です。各食はパターンを選べ、カロリー配分に合わせてグラム数が調整されます。量感の目安としてご活用ください。">
+        {ready && showEatOut && (
+          <Section S={S} no="09" title="外食の一皿インパクト"
+            note={`身近な外食やおやつが、1食でだいたい何kcalになるかの一覧です。あなたの1日の推奨は約${r ? r.intakeHi.toLocaleString() : "—"}kcal。一皿でどれくらい使うか、目安として知っておきましょう。同じ料理でもお店や量で差が出るため、幅（レンジ）で示しています。`}>
 
-            {/* 3食配分 */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ ...S.flabel, marginBottom: 12 }}>Meal split / %</div>
-              {MEALS.map((m) => (
-                <div key={m.id} style={S.splitRow}>
-                  <span style={S.splitLabel}>{m.label}</span>
-                  <input style={S.slider} type="range" min={10} max={60} step={1}
-                    value={split[m.id]}
-                    onChange={(e) => setSplit((p) => ({ ...p, [m.id]: +e.target.value }))} />
-                  <span style={S.splitVal}>{split[m.id]}%</span>
-                </div>
-              ))}
-              <div style={S.hint}>
-                合計 {split.breakfast + split.lunch + split.dinner}%（100%になるよう調整すると精度が上がります）。
-              </div>
-            </div>
-
-            {/* 各食 */}
-            {meal.perMeal.map((pm) => (
-              <div key={pm.id} style={S.mealCard}>
-                <div style={S.mealHead}>
-                  <div style={S.mealTitle}>
-                    <span style={S.mealJa}>{pm.label}</span>
-                    <span style={S.mealEn}>{pm.en}</span>
-                  </div>
-                  <span style={S.mealKcal}>{pm.kcal.toLocaleString()} kcal</span>
-                </div>
-
-                <div style={S.protPick}>
-                  {MENUS[pm.id].map((mn) => (
-                    <div key={mn.id} style={S.protChip(menuChoice[pm.id] === mn.id)}
-                      onClick={() => setMenuChoice((p) => ({ ...p, [pm.id]: mn.id }))}>
-                      {mn.label}
+            {EATING_OUT.map((grp) => (
+              <div key={grp.cat} style={{ marginBottom: 22 }}>
+                <div style={{ ...S.flabel, marginBottom: 6 }}>{grp.cat}</div>
+                {grp.items.map((it, i) => (
+                  <div key={i} style={{ ...S.foodRow, alignItems: "flex-start" }}>
+                    <div style={{ flex: 1, paddingRight: 12 }}>
+                      <div style={S.foodName}>{it.name}</div>
+                      {it.note && <div style={{ ...S.rowNote }}>{it.note}</div>}
                     </div>
-                  ))}
-                </div>
-                <div style={{ ...S.band, marginTop: 0, marginBottom: 10 }}>{pm.menu.desc}</div>
-
-                {pm.items.map((it, i) => (
-                  <div key={i} style={S.foodRow}>
-                    <span style={S.foodName}>
-                      {it.name}
-                      {it.units && (
-                        <span style={{ color: C.sub, fontSize: 11, marginLeft: 8 }}>
-                          ≈ {it.units.toFixed(1)}{it.unitName}
-                        </span>
-                      )}
-                    </span>
-                    <span style={S.foodG}>{it.g} g</span>
+                    <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                      <div style={S.foodG}>
+                        {it.kcalLo === it.kcalHi ? `約${it.kcalLo}` : `${it.kcalLo}–${it.kcalHi}`}
+                        <span style={{ fontSize: 11, color: C.sub }}> kcal</span>
+                      </div>
+                      <div style={{ fontFamily: JOST, fontSize: 11, color: C.sub, letterSpacing: 0.5, marginTop: 3 }}>
+                        P{it.P} · F{it.F} · C{it.C}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
             ))}
 
-            {/* 食物繊維・水分・睡眠 */}
-            <div style={S.reco}>
-              <div style={S.recoBox}>
-                <div style={S.recoNum}>{meal.fiberTarget}<span style={{ fontSize: 11 }}>g</span></div>
-                <div style={S.recoLabel}>FIBER / 日</div>
+            {/* 脂質・糖質でカロリーが先に埋まる、という気づき */}
+            <div style={{ background: C.need, border: `1px solid ${C.needLine}`, padding: "16px 16px 18px", marginTop: 6 }}>
+              <div style={{ fontSize: 13, fontWeight: 500, letterSpacing: 0.5, color: C.danger, marginBottom: 6 }}>
+                脂質・糖質は、カロリーを一気に押し上げます
               </div>
-              <div style={S.recoBox}>
-                <div style={S.recoNum}>{meal.waterLo}–{meal.waterHi}<span style={{ fontSize: 11 }}>L</span></div>
-                <div style={S.recoLabel}>WATER / 日</div>
-              </div>
-              <div style={S.recoBox}>
-                <div style={S.recoNum}>6–7<span style={{ fontSize: 11 }}>h</span></div>
-                <div style={S.recoLabel}>SLEEP / 日</div>
+              <div style={{ ...S.guideBody }}>
+                これらの多くは脂質と糖質が高く、その分カロリーもすぐ大きくなります。
+                こうした一皿が続くと、<b>必要なたんぱく質を摂りきる前に、1日の摂取量の上限に達してしまう</b>ことがあります。
+                「お腹は満たされたのに、たんぱく質は足りていない」という状態です。
               </div>
             </div>
-            <div style={{ ...S.band, marginTop: 12 }}>
-              上の3食で食物繊維は約{meal.fiberFromMeals}g。
-              {meal.fiberGap > 0
-                ? `目標20gまであと約${meal.fiberGap}gは、野菜・きのこ・海藻・果物を一品足して補ってください。`
-                : "この時点で1日20gの目標に届いています。"}<br />
-              水分は飲用としての目安（食事から約半分を摂る前提）。運動量・体格・糖質量で変わります。<br />
-              睡眠は最低6時間、6〜7時間を推奨。
+
+            {/* スタンス＋食事管理指導への導線 */}
+            <div style={{ borderTop: `1px solid ${C.ink}`, marginTop: 28, paddingTop: 24 }}>
+              <div style={{ fontSize: 17, fontWeight: 500, letterSpacing: 1, lineHeight: 1.7, color: C.ink, marginBottom: 14 }}>
+                これらを禁止はしません。<br />まず「知って」過ごしましょう。
+              </div>
+              <div style={{ ...S.guideBody, marginBottom: 16 }}>
+                好きなものを食べてはいけない、ということではありません。
+                大切なのは、これらの一皿がどれだけのカロリーになるかを知っておくこと。
+                そのうえで食べるなら、次のどれかで全体のバランスを取る必要があります。
+              </div>
+              <div style={S.rowList}>
+                <div style={{ ...S.foodRow, cursor: "default" }}>
+                  <span style={{ ...S.foodName, color: C.ink }}>ほかの食事を抑える</span>
+                  <span style={S.rowRight(false)}>ADJUST</span>
+                </div>
+                <div style={{ ...S.foodRow, cursor: "default" }}>
+                  <span style={{ ...S.foodName, color: C.ink }}>1週間単位で運動量を増やす</span>
+                  <span style={S.rowRight(false)}>MOVE</span>
+                </div>
+                <div style={{ ...S.foodRow, cursor: "default" }}>
+                  <span style={{ ...S.foodName, color: C.ink }}>摂取量そのものを調整する</span>
+                  <span style={S.rowRight(false)}>INTAKE</span>
+                </div>
+              </div>
+              <div style={{ background: C.aquaSoft, border: `1px solid ${C.aqua}`, padding: "18px 18px 20px", marginTop: 18 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 500, letterSpacing: 0.5, color: C.aquaDeep, marginBottom: 6 }}>
+                  この全体のバランス調整を一緒に行うのが、食事管理指導です。
+                </div>
+                <div style={{ fontSize: 12.5, lineHeight: 1.9, letterSpacing: 0.3, color: C.ink }}>
+                  日々の食事・運動・摂取量を、1週間単位で無理なく整えていきます。
+                  ご興味があれば、担当トレーナーまでお声がけください。
+                </div>
+              </div>
+            </div>
+
+            <div style={{ ...S.band, marginTop: 24 }}>
+              出典：カロリーSlism（日本食品標準成分表8訂ベース）ほか、各社栄養成分・管理栄養士監修記事より。
+              値は代表的な目安で、店舗・具材・量により変動します。
             </div>
 
             <button style={{ ...S.revealBtn, borderColor: C.line, color: C.sub }}
-              onClick={() => setShowMeal(false)}>
+              onClick={() => setShowEatOut(false)}>
               閉じる −
             </button>
           </Section>
