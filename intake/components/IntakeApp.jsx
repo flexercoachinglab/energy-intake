@@ -142,6 +142,22 @@ function stepsAdj(steps) {
 }
 const rnd = (n) => Math.round(n / 10) * 10;
 
+// Section はモジュール直下で定義（App内で定義すると毎描画で再マウントされ、
+// 入力欄のフォーカスが外れてキーボードが閉じるため）
+function Section({ S, no, title, note, need, children }) {
+  return (
+    <div style={S.section}>
+      <div style={S.secHead}>
+        <span style={S.secNo}>{no}</span>
+        <span style={S.secTitle}>{title}</span>
+        {need && <span style={S.needTag}>未選択</span>}
+      </div>
+      {note && <div style={S.secNote}>{note}</div>}
+      {children}
+    </div>
+  );
+}
+
 export default function App() {
   const [sex, setSex] = useState(null);
   const [age, setAge] = useState("");
@@ -402,18 +418,6 @@ export default function App() {
     recoLabel: { fontFamily: JOST, fontSize: 9.5, letterSpacing: 1.2, color: C.sub, marginTop: 6 },
   };
 
-  const Section = ({ no, title, note, need, children }) => (
-    <div style={S.section}>
-      <div style={S.secHead}>
-        <span style={S.secNo}>{no}</span>
-        <span style={S.secTitle}>{title}</span>
-        {need && <span style={S.needTag}>未選択</span>}
-      </div>
-      {note && <div style={S.secNote}>{note}</div>}
-      {children}
-    </div>
-  );
-
   const num = (v, set) => (
     <input
       style={{ ...S.input, ...(v === "" ? S.inputNeed : {}) }}
@@ -439,7 +443,7 @@ export default function App() {
         </div>
 
         {/* 01 基本情報 */}
-        <Section no="01" title="基本情報" need={!filled.sex || !filled.age || !filled.height || !filled.weight}>
+        <Section S={S} no="01" title="基本情報" need={!filled.sex || !filled.age || !filled.height || !filled.weight}>
           <div style={{ ...(sex === null ? S.needBox : {}), marginBottom: 24, paddingTop: sex === null ? 10 : 0, paddingBottom: sex === null ? 10 : 0 }}>
             <div style={S.segWrap}>
               <div style={S.chip(sex === "female")} onClick={() => setSex("female")}>女性</div>
@@ -454,7 +458,7 @@ export default function App() {
         </Section>
 
         {/* 02 体脂肪率 */}
-        <Section no="02" title="体脂肪率" need={!filled.bfLo || !filled.bfHi} note="家庭用計は日により±数％ぶれます。おおよその幅で捉えてください。">
+        <Section S={S} no="02" title="体脂肪率" need={!filled.bfLo || !filled.bfHi} note="家庭用計は日により±数％ぶれます。おおよその幅で捉えてください。">
           <div style={S.grid2}>
             <div style={S.field}><label style={S.flabel}>Low / %</label>{num(bfLo, setBfLo)}</div>
             <div style={S.field}><label style={S.flabel}>High / %</label>{num(bfHi, setBfHi)}</div>
@@ -462,7 +466,7 @@ export default function App() {
         </Section>
 
         {/* 03 職業 */}
-        <Section no="03" title="職業・勤務中の活動" need={job === null}
+        <Section S={S} no="03" title="職業・勤務中の活動" need={job === null}
           note="この活動係数はFLEXER独自の係数で、一般的な計算式より意図的に厳しめです。ここで選ぶ職業はおおよその出発点。次の「疲れ方」と「歩数」で実際の活動量に寄せて補正します。肩書きと実態がずれても、あとの2問で調整されます。">
           <div style={{ ...S.rowList, ...(job === null ? S.needBox : {}) }}>
             {JOBS.map((j) => {
@@ -478,7 +482,7 @@ export default function App() {
         </Section>
 
         {/* 04 疲労度 */}
-        <Section no="04" title="仕事を終えたときの体の感じ" need={fatigue === null}
+        <Section S={S} no="04" title="仕事を終えたときの体の感じ" need={fatigue === null}
           note="「座りっぱなしで固まった疲れ」は活動ではありません。「動いて疲れた」なら活動としてカウントします。">
           <div style={{ ...S.rowList, ...(fatigue === null ? S.needBox : {}) }}>
             {FATIGUE.map((f) => {
@@ -497,7 +501,7 @@ export default function App() {
         </Section>
 
         {/* 05 歩数 */}
-        <Section no="05" title="1日の平均歩数" need={stepsMode === null || (stepsMode === "lifestyle" && lifestyle === null)}>
+        <Section S={S} no="05" title="1日の平均歩数" need={stepsMode === null || (stepsMode === "lifestyle" && lifestyle === null)}>
           <div style={{ ...(stepsMode === null ? S.needBox : {}), marginBottom: 20, paddingTop: stepsMode === null ? 6 : 0 }}>
             <div style={S.segRow}>
               <div style={S.seg(stepsMode === "exact")} onClick={() => setStepsMode("exact")}>数字で入れる</div>
@@ -534,7 +538,7 @@ export default function App() {
         </Section>
 
         {/* 06 運動習慣 */}
-        <Section no="06" title="運動習慣（複数選択可）" need={!(exNone || Object.keys(exFreq).length > 0)}
+        <Section S={S} no="06" title="運動習慣（複数選択可）" need={!(exNone || Object.keys(exFreq).length > 0)}
           note="やっている運動をすべて選び、それぞれの頻度を指定してください。運動していない場合は「運動なし」を選んでください。">
           <div style={{ ...S.rowList, ...(!(exNone || Object.keys(exFreq).length > 0) ? S.needBox : {}) }}>
             {EX_TYPE.map((e) => {
@@ -579,7 +583,7 @@ export default function App() {
         </Section>
 
         {/* 07 減量目標 */}
-        <Section no="07" title="1か月あたりの減量目標" need={lossKg === null}>
+        <Section S={S} no="07" title="1か月あたりの減量目標" need={lossKg === null}>
           {lossKg === null ? (
             <div style={{ ...S.needBox, padding: "14px 12px" }}>
               <div style={S.segWrap}>
@@ -604,7 +608,7 @@ export default function App() {
         </Section>
 
         {/* 08 結果 */}
-        <Section no="08" title="結果">
+        <Section S={S} no="08" title="結果">
           {!ready ? (
             <div style={{ ...S.needBox, padding: "22px 20px" }}>
               <div style={{ fontSize: 13, color: C.danger, fontWeight: 500, letterSpacing: 0.5, marginBottom: 8 }}>
@@ -724,7 +728,7 @@ export default function App() {
         )}
 
         {ready && showMeal && (
-          <Section no="09" title="食事とリカバリーの目安"
+          <Section S={S} no="09" title="食事とリカバリーの目安"
             note="推奨の目安（上限側）を1日量として3食に配分し、定番の献立に置き換えた目安です。各食はパターンを選べ、カロリー配分に合わせてグラム数が調整されます。量感の目安としてご活用ください。">
 
             {/* 3食配分 */}
