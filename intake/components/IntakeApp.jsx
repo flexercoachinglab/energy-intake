@@ -11,7 +11,7 @@ import React, { useState, useMemo } from "react";
 const C = {
   ink: "#0A0A0A", paper: "#FFFFFF", off: "#FAFAF8", line: "#E8E8E6",
   sub: "#8A8A8A", aqua: "#7FD4E3", aquaDeep: "#3BA6C8", aquaSoft: "#EAF7FA",
-  warn: "#B98A3A", danger: "#C4573F",
+  warn: "#B98A3A", danger: "#C4573F", need: "#FBEDEA", needLine: "#E8B4A8",
 };
 
 // 職業＝出発点となる中心PAL
@@ -143,19 +143,20 @@ function stepsAdj(steps) {
 const rnd = (n) => Math.round(n / 10) * 10;
 
 export default function App() {
-  const [sex, setSex] = useState("female");
-  const [age, setAge] = useState(40);
-  const [height, setHeight] = useState(160);
-  const [weight, setWeight] = useState(58);
-  const [bfLo, setBfLo] = useState(26);
-  const [bfHi, setBfHi] = useState(30);
-  const [job, setJob] = useState("stand");
-  const [fatigue, setFatigue] = useState("mid");
-  const [stepsMode, setStepsMode] = useState("exact");
+  const [sex, setSex] = useState(null);
+  const [age, setAge] = useState("");
+  const [height, setHeight] = useState("");
+  const [weight, setWeight] = useState("");
+  const [bfLo, setBfLo] = useState("");
+  const [bfHi, setBfHi] = useState("");
+  const [job, setJob] = useState(null);
+  const [fatigue, setFatigue] = useState(null);
+  const [stepsMode, setStepsMode] = useState(null);
   const [steps, setSteps] = useState(4000);
-  const [lifestyle, setLifestyle] = useState("l2");
+  const [lifestyle, setLifestyle] = useState(null);
   const [exFreq, setExFreq] = useState({});
-  const [lossKg, setLossKg] = useState(2.0);
+  const [exNone, setExNone] = useState(false); // 「運動なし」を明示的に選んだか
+  const [lossKg, setLossKg] = useState(null);
   // 食事の目安
   const [showMeal, setShowMeal] = useState(false);
   const [split, setSplit] = useState({ breakfast: 33, lunch: 33, dinner: 34 });
@@ -163,8 +164,26 @@ export default function App() {
     breakfast: "b_wa", lunch: "l_don", dinner: "d_pork",
   });
 
+  // 各項目の未入力・未選択を判定
+  const filled = {
+    sex: sex !== null,
+    age: age !== "" && +age > 0,
+    height: height !== "" && +height > 0,
+    weight: weight !== "" && +weight > 0,
+    bfLo: bfLo !== "",
+    bfHi: bfHi !== "",
+    job: job !== null,
+    fatigue: fatigue !== null,
+    stepsMode: stepsMode !== null,
+    lifestyle: !(stepsMode === "lifestyle" && lifestyle === null),
+    exercise: exNone || Object.keys(exFreq).length > 0,
+    lossKg: lossKg !== null,
+  };
+  const ready = Object.values(filled).every(Boolean);
+
   const r = useMemo(() => {
-    const bmr = bmrMifflin({ sex, weight, height, age });
+    if (!ready) return null;
+    const bmr = bmrMifflin({ sex, weight: +weight, height: +height, age: +age });
     const jobPal = JOBS.find((j) => j.id === job).pal;
     const fAdj = FATIGUE.find((f) => f.id === fatigue).adj;
     let effSteps = steps;
@@ -195,8 +214,8 @@ export default function App() {
     const tight = intakeMid < bmr * 1.1;
 
     const pfcBasis = Math.max(intakeMid, bmr);
-    const pGlo = Math.round(weight * 1.3);
-    const pGhi = Math.round(weight * 1.4);
+    const pGlo = Math.round(+weight * 1.3);
+    const pGhi = Math.round(+weight * 1.4);
     const pKcal = ((pGlo + pGhi) / 2) * 4;
     const fKcal = pfcBasis * 0.20;
     const fG = Math.round(fKcal / 9);
@@ -216,10 +235,11 @@ export default function App() {
       belowBMR, tight,
       pGlo, pGhi, fG, cG, pfcBasis: rnd(pfcBasis), coachKey,
     };
-  }, [sex, age, height, weight, job, fatigue, stepsMode, steps, lifestyle, exFreq, lossKg]);
+  }, [ready, sex, age, height, weight, job, fatigue, stepsMode, steps, lifestyle, exFreq, lossKg]);
 
   // 食事・水分・睡眠の目安（推奨の目安＝intakeHi を1日量として3食に配分）
   const meal = useMemo(() => {
+    if (!r) return null;
     const dayKcal = r.intakeHi;
     const cDay = r.cG;
 
@@ -249,7 +269,7 @@ export default function App() {
     const fiberGap = Math.max(0, FIBER_TARGET - fiberFromMeals);
 
     // 水分：体重×35mL を土台。運動量・炭水化物量で微調整し、食事から約50%摂る前提で飲用ぶんをレンジ化
-    const totalMl = weight * 35 + (r.eAdd > 0.08 ? 300 : 0) + (cDay > 200 ? 200 : 0);
+    const totalMl = +weight * 35 + (r.eAdd > 0.08 ? 300 : 0) + (cDay > 200 ? 200 : 0);
     const drinkLo = Math.max(1.2, (totalMl * 0.48) / 1000);
     const drinkHi = Math.min(2.6, (totalMl * 0.62) / 1000);
 
@@ -295,6 +315,10 @@ export default function App() {
     input: { padding: "8px 2px", border: "none", borderBottom: `1px solid ${C.line}`,
       borderRadius: 0, fontFamily: JOST, fontSize: 18, background: "transparent",
       color: C.ink, width: "100%", boxSizing: "border-box", outline: "none" },
+    inputNeed: { background: C.need, borderBottom: `1px solid ${C.needLine}`, padding: "8px 8px" },
+    needBox: { background: C.need, border: `1px solid ${C.needLine}`, padding: "2px 12px" },
+    needTag: { display: "inline-block", fontSize: 10.5, letterSpacing: 1, color: C.danger,
+      background: C.need, border: `1px solid ${C.needLine}`, padding: "2px 8px", marginLeft: 10 },
 
     // segmented (pills → underlined toggles)
     segRow: { display: "flex", gap: 0, borderBottom: `1px solid ${C.line}` },
@@ -378,11 +402,12 @@ export default function App() {
     recoLabel: { fontFamily: JOST, fontSize: 9.5, letterSpacing: 1.2, color: C.sub, marginTop: 6 },
   };
 
-  const Section = ({ no, title, note, children }) => (
+  const Section = ({ no, title, note, need, children }) => (
     <div style={S.section}>
       <div style={S.secHead}>
         <span style={S.secNo}>{no}</span>
         <span style={S.secTitle}>{title}</span>
+        {need && <span style={S.needTag}>未選択</span>}
       </div>
       {note && <div style={S.secNote}>{note}</div>}
       {children}
@@ -390,7 +415,12 @@ export default function App() {
   );
 
   const num = (v, set) => (
-    <input style={S.input} type="number" value={v} onChange={(e) => set(+e.target.value)} />
+    <input
+      style={{ ...S.input, ...(v === "" ? S.inputNeed : {}) }}
+      type="number" value={v}
+      placeholder="—"
+      onChange={(e) => set(e.target.value === "" ? "" : +e.target.value)}
+    />
   );
 
   return (
@@ -409,10 +439,12 @@ export default function App() {
         </div>
 
         {/* 01 基本情報 */}
-        <Section no="01" title="基本情報">
-          <div style={{ ...S.segWrap, marginBottom: 24 }}>
-            <div style={S.chip(sex === "female")} onClick={() => setSex("female")}>女性</div>
-            <div style={S.chip(sex === "male")} onClick={() => setSex("male")}>男性</div>
+        <Section no="01" title="基本情報" need={!filled.sex || !filled.age || !filled.height || !filled.weight}>
+          <div style={{ ...(sex === null ? S.needBox : {}), marginBottom: 24, paddingTop: sex === null ? 10 : 0, paddingBottom: sex === null ? 10 : 0 }}>
+            <div style={S.segWrap}>
+              <div style={S.chip(sex === "female")} onClick={() => setSex("female")}>女性</div>
+              <div style={S.chip(sex === "male")} onClick={() => setSex("male")}>男性</div>
+            </div>
           </div>
           <div style={{ ...S.grid2, marginBottom: 24 }}>
             <div style={S.field}><label style={S.flabel}>Age</label>{num(age, setAge)}</div>
@@ -422,7 +454,7 @@ export default function App() {
         </Section>
 
         {/* 02 体脂肪率 */}
-        <Section no="02" title="体脂肪率" note="家庭用計は日により±数％ぶれます。おおよその幅で捉えてください。">
+        <Section no="02" title="体脂肪率" need={!filled.bfLo || !filled.bfHi} note="家庭用計は日により±数％ぶれます。おおよその幅で捉えてください。">
           <div style={S.grid2}>
             <div style={S.field}><label style={S.flabel}>Low / %</label>{num(bfLo, setBfLo)}</div>
             <div style={S.field}><label style={S.flabel}>High / %</label>{num(bfHi, setBfHi)}</div>
@@ -430,9 +462,9 @@ export default function App() {
         </Section>
 
         {/* 03 職業 */}
-        <Section no="03" title="職業・勤務中の活動"
+        <Section no="03" title="職業・勤務中の活動" need={job === null}
           note="この活動係数はFLEXER独自の係数で、一般的な計算式より意図的に厳しめです。ここで選ぶ職業はおおよその出発点。次の「疲れ方」と「歩数」で実際の活動量に寄せて補正します。肩書きと実態がずれても、あとの2問で調整されます。">
-          <div style={S.rowList}>
+          <div style={{ ...S.rowList, ...(job === null ? S.needBox : {}) }}>
             {JOBS.map((j) => {
               const on = job === j.id;
               return (
@@ -446,9 +478,9 @@ export default function App() {
         </Section>
 
         {/* 04 疲労度 */}
-        <Section no="04" title="仕事を終えたときの体の感じ"
+        <Section no="04" title="仕事を終えたときの体の感じ" need={fatigue === null}
           note="「座りっぱなしで固まった疲れ」は活動ではありません。「動いて疲れた」なら活動としてカウントします。">
-          <div style={S.rowList}>
+          <div style={{ ...S.rowList, ...(fatigue === null ? S.needBox : {}) }}>
             {FATIGUE.map((f) => {
               const on = fatigue === f.id;
               return (
@@ -465,11 +497,13 @@ export default function App() {
         </Section>
 
         {/* 05 歩数 */}
-        <Section no="05" title="1日の平均歩数">
-          <div style={{ ...S.segRow, marginBottom: 20 }}>
-            <div style={S.seg(stepsMode === "exact")} onClick={() => setStepsMode("exact")}>数字で入れる</div>
-            <div style={S.seg(stepsMode === "lifestyle")} onClick={() => setStepsMode("lifestyle")}>ざっくり選ぶ</div>
-            <div style={S.seg(stepsMode === "unknown")} onClick={() => setStepsMode("unknown")}>わからない</div>
+        <Section no="05" title="1日の平均歩数" need={stepsMode === null || (stepsMode === "lifestyle" && lifestyle === null)}>
+          <div style={{ ...(stepsMode === null ? S.needBox : {}), marginBottom: 20, paddingTop: stepsMode === null ? 6 : 0 }}>
+            <div style={S.segRow}>
+              <div style={S.seg(stepsMode === "exact")} onClick={() => setStepsMode("exact")}>数字で入れる</div>
+              <div style={S.seg(stepsMode === "lifestyle")} onClick={() => setStepsMode("lifestyle")}>ざっくり選ぶ</div>
+              <div style={S.seg(stepsMode === "unknown")} onClick={() => setStepsMode("unknown")}>わからない</div>
+            </div>
           </div>
           {stepsMode === "exact" && (
             <div style={S.sliderRow}>
@@ -479,7 +513,7 @@ export default function App() {
             </div>
           )}
           {stepsMode === "lifestyle" && (
-            <div style={S.rowList}>
+            <div style={{ ...S.rowList, ...(lifestyle === null ? S.needBox : {}) }}>
               {STEP_LIFESTYLE.map((l) => {
                 const on = lifestyle === l.id;
                 return (
@@ -494,26 +528,26 @@ export default function App() {
           {stepsMode === "unknown" && (
             <div style={S.hint}>歩数は使わずに計算します。職業と「疲れ方」で活動量を判定するので問題ありません。無理に推測するより、そのほうが正確です。</div>
           )}
-          {stepsMode !== "unknown" && (
+          {(stepsMode === "exact" || stepsMode === "lifestyle") && (
             <div style={S.hint}>買い物や家事のこま切れの歩数は、まとまった運動とは分けて、生活活動としてごく控えめに反映します。</div>
           )}
         </Section>
 
         {/* 06 運動習慣 */}
-        <Section no="06" title="運動習慣（複数選択可）"
-          note="やっている運動をすべて選び、それぞれの頻度を指定してください。何もしていなければ空のままでOK。">
-          <div style={S.rowList}>
+        <Section no="06" title="運動習慣（複数選択可）" need={!(exNone || Object.keys(exFreq).length > 0)}
+          note="やっている運動をすべて選び、それぞれの頻度を指定してください。運動していない場合は「運動なし」を選んでください。">
+          <div style={{ ...S.rowList, ...(!(exNone || Object.keys(exFreq).length > 0) ? S.needBox : {}) }}>
             {EX_TYPE.map((e) => {
               const on = !!exFreq[e.id];
               return (
                 <div key={e.id}>
                   <div style={S.row(on)}
-                    onClick={() => setExFreq((prev) => {
+                    onClick={() => { setExNone(false); setExFreq((prev) => {
                       const next = { ...prev };
                       if (next[e.id]) delete next[e.id];
                       else next[e.id] = "f12";
                       return next;
-                    })}>
+                    }); }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       <span style={S.rowMark(on)} />
                       <span style={S.rowLabel(on)}>{e.label}</span>
@@ -533,27 +567,59 @@ export default function App() {
                 </div>
               );
             })}
+            <div style={S.row(exNone)}
+              onClick={() => { setExFreq({}); setExNone(true); }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={S.rowMark(exNone)} />
+                <span style={S.rowLabel(exNone)}>運動なし</span>
+              </div>
+              <span style={S.rowRight(exNone)}>{exNone ? "選択中" : "選ぶ"}</span>
+            </div>
           </div>
-          {Object.keys(exFreq).length === 0 && (
-            <div style={S.hint}>運動習慣なしとして計算します。</div>
-          )}
         </Section>
 
         {/* 07 減量目標 */}
-        <Section no="07" title="1か月あたりの減量目標">
-          <div style={S.sliderRow}>
-            <input style={S.slider} type="range" min={0.5} max={3} step={0.5}
-              value={lossKg} onChange={(e) => setLossKg(+e.target.value)} />
-            <span style={S.sliderVal}>&minus;{lossKg.toFixed(1)}kg</span>
-          </div>
-          <div style={S.hint}>
-            体重の約2%/月が一般的なペースです（現体重{weight}kgなら月−{(weight * 0.02).toFixed(1)}kg前後）。
-            1日あたり約 {r.dailyDeficit.toLocaleString()} kcal を差し引きます。
-          </div>
+        <Section no="07" title="1か月あたりの減量目標" need={lossKg === null}>
+          {lossKg === null ? (
+            <div style={{ ...S.needBox, padding: "14px 12px" }}>
+              <div style={S.segWrap}>
+                {[0.5, 1.0, 1.5, 2.0, 2.5, 3.0].map((v) => (
+                  <div key={v} style={S.chip(false)} onClick={() => setLossKg(v)}>−{v.toFixed(1)}kg</div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div style={S.sliderRow}>
+                <input style={S.slider} type="range" min={0.5} max={3} step={0.5}
+                  value={lossKg} onChange={(e) => setLossKg(+e.target.value)} />
+                <span style={S.sliderVal}>&minus;{lossKg.toFixed(1)}kg</span>
+              </div>
+              <div style={S.hint}>
+                体重の約2%/月が一般的なペースです{filled.weight && `（現体重${weight}kgなら月−${(+weight * 0.02).toFixed(1)}kg前後）`}。
+                {r && `1日あたり約 ${r.dailyDeficit.toLocaleString()} kcal を差し引きます。`}
+              </div>
+            </>
+          )}
         </Section>
 
         {/* 08 結果 */}
         <Section no="08" title="結果">
+          {!ready ? (
+            <div style={{ ...S.needBox, padding: "22px 20px" }}>
+              <div style={{ fontSize: 13, color: C.danger, fontWeight: 500, letterSpacing: 0.5, marginBottom: 8 }}>
+                すべての項目を入力・選択すると結果が表示されます
+              </div>
+              <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.9, letterSpacing: 0.3 }}>
+                未入力：{[
+                  !filled.sex && "性別", (!filled.age || !filled.height || !filled.weight) && "身体情報",
+                  (!filled.bfLo || !filled.bfHi) && "体脂肪率", !filled.job && "職業",
+                  !filled.fatigue && "疲れ方", (!filled.stepsMode || !filled.lifestyle) && "歩数",
+                  !filled.exercise && "運動習慣", !filled.lossKg && "減量目標",
+                ].filter(Boolean).join("・")}
+              </div>
+            </div>
+          ) : (
           <div style={S.result}>
             <div style={S.resLabel}>MAINTENANCE&nbsp;&mdash;&nbsp;TDEE</div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
@@ -647,16 +713,17 @@ export default function App() {
               停滞は「代謝適応でNEATが低下したサイン」として下端側で扱うのが実践的です。
             </div>
           </div>
+          )}
         </Section>
 
-        {/* 食事の目安（ボタンで展開） */}
-        {!showMeal && (
+        {/* 食事の目安（ボタンで展開・結果が出てから） */}
+        {ready && !showMeal && (
           <button style={S.revealBtn} onClick={() => setShowMeal(true)}>
             食材のグラム数目安を見る ＋
           </button>
         )}
 
-        {showMeal && (
+        {ready && showMeal && (
           <Section no="09" title="食事とリカバリーの目安"
             note="推奨の目安（上限側）を1日量として3食に配分し、定番の献立に置き換えた目安です。各食はパターンを選べ、カロリー配分に合わせてグラム数が調整されます。量感の目安としてご活用ください。">
 
